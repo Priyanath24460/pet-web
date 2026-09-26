@@ -200,7 +200,14 @@ export default function ProfilePage() {
                         </div>
                         <div className="mt-auto pt-4 border-t border-slate-100 flex items-center justify-between">
                           <span className="text-sm font-semibold text-slate-600">{pet.gender} • {pet.age}</span>
-                          <button className="text-[#007BFF] bg-blue-50 p-2 rounded-full hover:bg-blue-100 transition">
+                          <button 
+                            onClick={(e) => {
+                              e.preventDefault();
+                              e.stopPropagation();
+                              router.push(`/my-pets/${pet.id}/edit`);
+                            }}
+                            className="text-[#007BFF] bg-blue-50 p-2 rounded-full hover:bg-blue-100 transition z-10 relative"
+                          >
                             <Edit2 className="w-4 h-4" />
                           </button>
                         </div>

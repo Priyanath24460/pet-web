@@ -8,6 +8,7 @@ import { collection, addDoc, Timestamp } from "firebase/firestore";
 import { auth, db } from "../../../lib/firebase/config";
 import { PawPrint, Image as ImageIcon, Loader2 } from "lucide-react";
 import Header from "../../../components/Header";
+import ImageCropperModal from "../../../components/ImageCropperModal";
 import toast from "react-hot-toast";
 
 export default function AddPetPage() {
@@ -25,6 +26,7 @@ export default function AddPetPage() {
   const [description, setDescription] = useState("");
   const [imageFiles, setImageFiles] = useState<(File | null)[]>([null, null, null]);
   const [imagePreviews, setImagePreviews] = useState<(string | null)[]>([null, null, null]);
+  const [cropQueue, setCropQueue] = useState<{file: File, url: string, targetIndex: number}[]>([]);
 
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -41,34 +43,54 @@ export default function AddPetPage() {
     return () => unsubscribe();
   }, [router]);
 
+  const activeCrop = cropQueue.length > 0 ? cropQueue[0] : null;
+
+  const handleCropComplete = (croppedFile: File) => {
+    if (!activeCrop) return;
+    const newFiles = [...imageFiles];
+    const newPreviews = [...imagePreviews];
+    newFiles[activeCrop.targetIndex] = croppedFile;
+    newPreviews[activeCrop.targetIndex] = URL.createObjectURL(croppedFile);
+    setImageFiles(newFiles);
+    setImagePreviews(newPreviews);
+    setCropQueue(prev => prev.slice(1));
+  };
+
+  const handleCropCancel = () => {
+    setCropQueue(prev => prev.slice(1));
+  };
+
   const handleImageChange = (clickedIndex: number, e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files.length > 0) {
       const files = Array.from(e.target.files);
-      const newFiles = [...imageFiles];
-      const newPreviews = [...imagePreviews];
+      const newQueue = [...cropQueue];
       
-      // Always put the first selected file into the slot they clicked
-      newFiles[clickedIndex] = files[0];
-      newPreviews[clickedIndex] = URL.createObjectURL(files[0]);
+      let currentFileIdx = 0;
+      newQueue.push({
+        file: files[currentFileIdx],
+        url: URL.createObjectURL(files[currentFileIdx]),
+        targetIndex: clickedIndex
+      });
+      currentFileIdx++;
       
-      // For any additional files, find the next available empty slots
-      let fileIdx = 1;
-      for (let i = 0; i < 3 && fileIdx < files.length; i++) {
-        if (i !== clickedIndex && newFiles[i] === null) {
-          newFiles[i] = files[fileIdx];
-          newPreviews[i] = URL.createObjectURL(files[fileIdx]);
-          fileIdx++;
+      for (let i = 0; i < 3 && currentFileIdx < files.length; i++) {
+        const isFilled = imageFiles[i] !== null;
+        const isQueued = newQueue.some(q => q.targetIndex === i);
+        if (i !== clickedIndex && !isFilled && !isQueued) {
+          newQueue.push({
+            file: files[currentFileIdx],
+            url: URL.createObjectURL(files[currentFileIdx]),
+            targetIndex: i
+          });
+          currentFileIdx++;
         }
       }
       
-      if (fileIdx < files.length) {
-        toast.error("Maximum 3 images allowed. Some images were not added.");
+      if (currentFileIdx < files.length) {
+        toast.error("Maximum 3 images allowed. Extras were discarded.");
       }
-
-      setImageFiles(newFiles);
-      setImagePreviews(newPreviews);
       
-      // Reset the input value so the same files can be selected again if needed
+      setCropQueue(newQueue);
       e.target.value = "";
     }
   };
@@ -167,6 +189,13 @@ export default function AddPetPage() {
       <Header />
 
       <main className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 mt-8 lg:mt-12">
+        {activeCrop && (
+          <ImageCropperModal
+            imageSrc={activeCrop.url}
+            onCropComplete={handleCropComplete}
+            onCancel={handleCropCancel}
+          />
+        )}
         <div className="bg-white rounded-[40px] p-8 sm:p-12 shadow-sm border border-slate-100">
           <div className="flex items-center gap-3 mb-8">
             <div className="bg-blue-100 p-3 rounded-2xl">
@@ -214,7 +243,10 @@ export default function AddPetPage() {
                     </div>
                   ))}
                 </div>
-                <p className="text-xs text-slate-500 mt-6">PNG, JPG, GIF up to 10MB per image</p>
+                <p className="text-xs text-slate-500 mt-6 text-center">
+                  PNG, JPG, GIF up to 10MB per image.<br/>
+                  <span className="font-medium text-slate-600">Tip:</span> 1:1 (Square) aspect ratio works best!
+                </p>
               </div>
             </div>
 

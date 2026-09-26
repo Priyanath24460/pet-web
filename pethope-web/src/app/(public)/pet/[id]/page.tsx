@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 import { MapPin, Info, PawPrint, Heart, Mail, User, Share2, ChevronLeft, Phone } from "lucide-react";
 import { getPetById, getUserById } from "../../../../services/petService";
 import Header from "../../../../components/Header";
+import PetImageGallery from "../../../../components/PetImageGallery";
 
 export default async function PetDetailsPage({ params }: { params: { id: string } }) {
   // Await the entire params object before destructuring its properties in Next.js 15+
@@ -17,6 +18,8 @@ export default async function PetDetailsPage({ params }: { params: { id: string 
   }
 
   const owner = await getUserById(pet.ownerId);
+
+  const images = pet.imageUrls && pet.imageUrls.length > 0 ? pet.imageUrls : (pet.imageUrl ? [pet.imageUrl] : []);
 
   return (
     <div className="min-h-screen bg-[#FDFDFD] font-sans pb-20">
@@ -33,27 +36,9 @@ export default async function PetDetailsPage({ params }: { params: { id: string 
         <div className="bg-white rounded-[40px] shadow-sm border border-slate-100 overflow-hidden">
           <div className="grid grid-cols-1 lg:grid-cols-2">
             
-            {/* Left: Image */}
-            <div className="relative h-96 lg:h-auto min-h-[400px] w-full bg-slate-100">
-              {pet.imageUrl ? (
-                <Image 
-                  src={pet.imageUrl} 
-                  alt={pet.name} 
-                  fill 
-                  className="object-cover"
-                  priority
-                />
-              ) : (
-                <div className="absolute inset-0 flex flex-col items-center justify-center text-slate-300">
-                  <PawPrint className="w-16 h-16 mb-4" />
-                  <span>No image available</span>
-                </div>
-              )}
-              
-              <div className="absolute top-6 left-6 bg-white/90 backdrop-blur-sm px-4 py-2 rounded-full text-sm font-bold text-slate-700 shadow-sm flex items-center gap-2">
-                <Heart className="w-4 h-4 text-blue-500 fill-blue-500" />
-                Ready for Adoption
-              </div>
+            {/* Left: Image Gallery */}
+            <div className="w-full h-full">
+              <PetImageGallery images={images} name={pet.name} />
             </div>
 
             {/* Right: Details */}
