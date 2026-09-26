@@ -17,14 +17,14 @@ export default function AddPetPage() {
 
   // Form State
   const [name, setName] = useState("");
-  const [breed, setBreed] = useState("");
   const [age, setAge] = useState("");
-  const [gender, setGender] = useState<"Male" | "Female">("Male");
+  const [gender, setGender] = useState<"Male" | "Female" | "Both">("Male");
   const [location, setLocation] = useState("");
   const [contactNumber, setContactNumber] = useState("");
   const [category, setCategory] = useState("Dog");
-  const [imageFile, setImageFile] = useState<File | null>(null);
-  const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [description, setDescription] = useState("");
+  const [imageFiles, setImageFiles] = useState<(File | null)[]>([null, null, null]);
+  const [imagePreviews, setImagePreviews] = useState<(string | null)[]>([null, null, null]);
 
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -41,12 +41,46 @@ export default function AddPetPage() {
     return () => unsubscribe();
   }, [router]);
 
-  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files[0]) {
-      const file = e.target.files[0];
-      setImageFile(file);
-      setImagePreview(URL.createObjectURL(file));
+  const handleImageChange = (clickedIndex: number, e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files.length > 0) {
+      const files = Array.from(e.target.files);
+      const newFiles = [...imageFiles];
+      const newPreviews = [...imagePreviews];
+      
+      // Always put the first selected file into the slot they clicked
+      newFiles[clickedIndex] = files[0];
+      newPreviews[clickedIndex] = URL.createObjectURL(files[0]);
+      
+      // For any additional files, find the next available empty slots
+      let fileIdx = 1;
+      for (let i = 0; i < 3 && fileIdx < files.length; i++) {
+        if (i !== clickedIndex && newFiles[i] === null) {
+          newFiles[i] = files[fileIdx];
+          newPreviews[i] = URL.createObjectURL(files[fileIdx]);
+          fileIdx++;
+        }
+      }
+      
+      if (fileIdx < files.length) {
+        toast.error("Maximum 3 images allowed. Some images were not added.");
+      }
+
+      setImageFiles(newFiles);
+      setImagePreviews(newPreviews);
+      
+      // Reset the input value so the same files can be selected again if needed
+      e.target.value = "";
     }
+  };
+
+  const handleRemoveImage = (index: number) => {
+    const newFiles = [...imageFiles];
+    newFiles[index] = null;
+    setImageFiles(newFiles);
+
+    const newPreviews = [...imagePreviews];
+    newPreviews[index] = null;
+    setImagePreviews(newPreviews);
   };
 
   const uploadImageToCloudinary = async (file: File): Promise<string> => {
@@ -78,28 +112,32 @@ export default function AddPetPage() {
     e.preventDefault();
     if (!user) return;
     
-    if (!imageFile) {
-      toast.error("Please select a pet image.");
+    const validFiles = imageFiles.filter((f): f is File => f !== null);
+    
+    if (validFiles.length === 0) {
+      toast.error("Please select at least one pet image.");
       return;
     }
 
     setIsSubmitting(true);
 
     try {
-      // 1. Upload image
-      const imageUrl = await uploadImageToCloudinary(imageFile);
+      // 1. Upload images
+      const uploadPromises = validFiles.map(file => uploadImageToCloudinary(file));
+      const imageUrls = await Promise.all(uploadPromises);
 
       // 2. Save to Firestore
       const petsCollection = collection(db, "pets");
       await addDoc(petsCollection, {
         name,
-        breed,
         age,
         gender,
         location,
         contactNumber,
         category,
-        imageUrl,
+        description,
+        imageUrls,
+        imageUrl: imageUrls[0] || "",
         ownerId: user.uid,
         createdAt: Timestamp.now(),
       });
@@ -144,32 +182,39 @@ export default function AddPetPage() {
             
             {/* Image Upload */}
             <div>
-              <label className="block text-sm font-semibold text-slate-700 mb-2">Pet Photo</label>
-              <div className="mt-1 flex justify-center px-6 pt-5 pb-6 border-2 border-slate-300 border-dashed rounded-3xl hover:bg-slate-50 transition relative overflow-hidden">
-                {imagePreview ? (
-                  <div className="relative w-full h-64">
-                    <Image src={imagePreview} alt="Preview" fill className="object-contain" />
-                    <button 
-                      type="button" 
-                      onClick={() => { setImageFile(null); setImagePreview(null); }}
-                      className="absolute top-2 right-2 bg-white/90 text-red-500 p-2 rounded-full shadow-sm hover:bg-white transition"
-                    >
-                      Change
-                    </button>
-                  </div>
-                ) : (
-                  <div className="space-y-1 text-center">
-                    <ImageIcon className="mx-auto h-12 w-12 text-slate-300" />
-                    <div className="flex text-sm text-slate-600 justify-center">
-                      <label htmlFor="file-upload" className="relative cursor-pointer bg-white rounded-md font-medium text-[#007BFF] hover:text-blue-500 focus-within:outline-none">
-                        <span>Upload a file</span>
-                        <input id="file-upload" name="file-upload" type="file" className="sr-only" accept="image/*" onChange={handleImageChange} />
-                      </label>
-                      <p className="pl-1">or drag and drop</p>
+              <label className="block text-sm font-semibold text-slate-700 mb-2">Pet Photos (Up to 3)</label>
+              <div className="mt-1 flex flex-col items-center justify-center px-6 pt-5 pb-6 border-2 border-slate-300 border-dashed rounded-3xl bg-slate-50/50 transition">
+                <div className="flex flex-wrap gap-4 justify-center">
+                  {[0, 1, 2].map((index) => (
+                    <div key={index} className="relative w-32 h-32 border-2 border-slate-200 border-dashed rounded-2xl hover:border-blue-400 hover:bg-blue-50/50 transition flex items-center justify-center overflow-hidden bg-white group">
+                      {imagePreviews[index] ? (
+                        <>
+                          <Image src={imagePreviews[index] as string} alt={`Preview ${index + 1}`} fill className="object-cover" />
+                          <button 
+                            type="button" 
+                            onClick={() => handleRemoveImage(index)}
+                            className="absolute top-2 right-2 bg-white/90 text-red-500 p-1.5 rounded-full shadow-sm hover:bg-red-50 hover:text-red-600 transition opacity-0 group-hover:opacity-100"
+                          >
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+                          </button>
+                        </>
+                      ) : (
+                        <label className="cursor-pointer w-full h-full flex flex-col items-center justify-center text-slate-400 hover:text-[#007BFF] transition">
+                          <ImageIcon className="w-8 h-8 mb-2 opacity-50" />
+                          <span className="text-xs font-semibold">Add Image</span>
+                          <input 
+                            type="file" 
+                            multiple
+                            className="sr-only" 
+                            accept="image/*" 
+                            onChange={(e) => handleImageChange(index, e)} 
+                          />
+                        </label>
+                      )}
                     </div>
-                    <p className="text-xs text-slate-500">PNG, JPG, GIF up to 10MB</p>
-                  </div>
-                )}
+                  ))}
+                </div>
+                <p className="text-xs text-slate-500 mt-6">PNG, JPG, GIF up to 10MB per image</p>
               </div>
             </div>
 
@@ -200,18 +245,6 @@ export default function AddPetPage() {
                   <option value="Rabbit">Rabbit</option>
                   <option value="Other">Other</option>
                 </select>
-              </div>
-
-              <div>
-                <label className="block text-sm font-semibold text-slate-700 mb-2">Breed</label>
-                <input 
-                  type="text" 
-                  value={breed}
-                  onChange={(e) => setBreed(e.target.value)}
-                  placeholder="e.g. Golden Retriever"
-                  className="w-full bg-slate-50 border border-slate-200 text-slate-900 rounded-2xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-[#007BFF]/50 transition"
-                  required
-                />
               </div>
 
               <div>
@@ -255,6 +288,19 @@ export default function AddPetPage() {
                       Female
                     </div>
                   </label>
+                  <label className="flex-1 cursor-pointer">
+                    <input 
+                      type="radio" 
+                      name="gender" 
+                      value="Both" 
+                      checked={gender === "Both"}
+                      onChange={() => setGender("Both")}
+                      className="sr-only peer" 
+                    />
+                    <div className="text-center py-3 border border-slate-200 rounded-2xl peer-checked:bg-blue-50 peer-checked:border-[#007BFF] peer-checked:text-[#007BFF] transition font-medium text-slate-600">
+                      Both
+                    </div>
+                  </label>
                 </div>
               </div>
 
@@ -281,6 +327,16 @@ export default function AddPetPage() {
                   required
                 />
               </div>
+            </div>
+
+            <div>
+              <label className="block text-sm font-semibold text-slate-700 mb-2">Description</label>
+              <textarea 
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+                placeholder="Tell us a bit about the pet's personality, habits, and what kind of home they need..."
+                className="w-full bg-slate-50 border border-slate-200 text-slate-900 rounded-2xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-[#007BFF]/50 transition min-h-[120px] resize-y"
+              ></textarea>
             </div>
 
             <button 

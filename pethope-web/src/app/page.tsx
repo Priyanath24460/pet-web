@@ -133,8 +133,8 @@ export default async function HomePage() {
                 
                 <div className="flex items-center justify-between mb-1">
                   <h3 className="text-xl font-bold text-slate-900">{pet.name}</h3>
-                  <span className={`text-xl font-bold ${pet.gender === 'Female' ? 'text-pink-500' : 'text-blue-500'}`}>
-                    {pet.gender === 'Female' ? '♀' : '♂'}
+                  <span className={`text-xl font-bold ${pet.gender === 'Female' ? 'text-pink-500' : pet.gender === 'Both' ? 'text-purple-500' : 'text-blue-500'}`}>
+                    {pet.gender === 'Female' ? '♀' : pet.gender === 'Both' ? '♂♀' : '♂'}
                   </span>
                 </div>
                 

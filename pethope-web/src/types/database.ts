@@ -11,12 +11,14 @@ export interface UserDocument {
 export interface PetListing {
   id?: string;
   name: string;
-  breed: string;
+  breed?: string;
   age: string;
-  gender: 'Male' | 'Female';
+  gender: 'Male' | 'Female' | 'Both';
   location: string;
   category: string;
+  description?: string;
   imageUrl: string;
+  imageUrls?: string[];
   ownerId: string;
   contactNumber?: string;
   createdAt?: Timestamp;

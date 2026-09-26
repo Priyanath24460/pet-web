@@ -96,10 +96,14 @@ export default async function PetDetailsPage({ params }: { params: { id: string 
                   <Info className="w-5 h-5 text-blue-500" />
                   About {pet.name}
                 </h3>
-                <p className="text-slate-600 leading-relaxed">
-                  Meet {pet.name}, a wonderful {pet.age.toLowerCase()} {pet.breed.toLowerCase()} waiting for a forever home. 
-                  {pet.gender === 'Male' ? ' He' : ' She'} is located in {pet.location} and would make a perfect addition to a loving family. 
-                  Please reach out to the owner below if you are interested in adopting {pet.name}!
+                <p className="text-slate-600 leading-relaxed whitespace-pre-wrap">
+                  {pet.description || (
+                    <>
+                      Meet {pet.name}, a wonderful {pet.age.toLowerCase()} {pet.breed ? pet.breed.toLowerCase() : pet.category.toLowerCase()} waiting for a forever home. 
+                      {pet.gender === 'Male' ? ' He is' : pet.gender === 'Female' ? ' She is' : ' They are'} located in {pet.location} and would make a perfect addition to a loving family. 
+                      Please reach out to the owner below if you are interested in adopting {pet.name}!
+                    </>
+                  )}
                 </p>
               </div>
 
